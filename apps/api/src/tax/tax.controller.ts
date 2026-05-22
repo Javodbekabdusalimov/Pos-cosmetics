@@ -3,13 +3,17 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../identity/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TaxService } from './tax.service';
+import { FiscalAdapterService } from './fiscal-adapter.service';
 
 @ApiTags('Tax / Fiscal')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('tax')
 export class TaxController {
-  constructor(private readonly taxService: TaxService) {}
+  constructor(
+    private readonly taxService: TaxService,
+    private readonly fiscalAdapter: FiscalAdapterService,
+  ) {}
 
   @Get('report')
   @ApiOperation({ summary: 'Davriy QQS (NDS) hisoboti — 12% VAT' })
@@ -39,5 +43,11 @@ export class TaxController {
     @Param('orderId') orderId: string,
   ) {
     return this.taxService.retryFiscal(tenantId, orderId);
+  }
+
+  @Get('fiscal/provider')
+  @ApiOperation({ summary: 'Hozirgi OFD provider nomi (REGOS yoki STUB)' })
+  getProvider() {
+    return { provider: this.fiscalAdapter.provider };
   }
 }
