@@ -3,13 +3,17 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../identity/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TaxService } from './tax.service';
+import { ReceiptTemplateService } from './receipt-template.service';
 
 @ApiTags('Tax / Fiscal')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('tax')
 export class TaxController {
-  constructor(private readonly taxService: TaxService) {}
+  constructor(
+    private readonly taxService: TaxService,
+    private readonly receiptTemplateService: ReceiptTemplateService,
+  ) {}
 
   @Get('report')
   @ApiOperation({ summary: 'Davriy QQS (NDS) hisoboti — 12% VAT' })
@@ -39,5 +43,25 @@ export class TaxController {
     @Param('orderId') orderId: string,
   ) {
     return this.taxService.retryFiscal(tenantId, orderId);
+  }
+
+  // ─── RECEIPT TEMPLATE (M-6) ─────────────────────────────────────────────────
+
+  @Get('receipt/:orderId')
+  @ApiOperation({ summary: 'Chek ma\'lumotlari (JSON) — VMQ 943 format' })
+  getReceiptData(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.receiptTemplateService.getReceiptData(tenantId, orderId);
+  }
+
+  @Get('receipt/:orderId/text')
+  @ApiOperation({ summary: 'Chek text format (POS printer uchun)' })
+  getReceiptText(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.receiptTemplateService.getReceiptText(tenantId, orderId);
   }
 }
