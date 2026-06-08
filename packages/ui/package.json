@@ -10,12 +10,12 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.7",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0"
   }
