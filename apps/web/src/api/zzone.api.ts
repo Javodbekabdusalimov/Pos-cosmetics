@@ -21,4 +21,8 @@ export const zzoneApi = {
   disconnect(): Promise<{ success: boolean }> {
     return apiClient.delete('/integrations/zzone/disconnect').then((r) => r.data);
   },
+
+  syncAll(): Promise<{ success: boolean; pushed: number; failed: number; already: number; errors: Array<{ productId: string; error: string }> }> {
+    return apiClient.post('/integrations/zzone/sync-all').then((r) => r.data);
+  },
 };

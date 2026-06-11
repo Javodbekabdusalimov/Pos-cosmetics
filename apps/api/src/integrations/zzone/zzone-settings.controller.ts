@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Post, HttpException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -86,6 +86,75 @@ export class ZzoneSettingsController {
     return { success: true, saved: true };
   }
 
+  @Post('sync-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Barcha mahsulotlarni RAOS → Adetal'ga yuborish (bir martalik to\'liq sync)' })
+  async syncAll(@CurrentTenant() tenantId: string) {
+    const zzoneConfig = await this.getZzoneConfigFull(tenantId);
+    if (!zzoneConfig) {
+      throw new HttpException('Avval Adetal bilan ulaning (connect qiling)', HttpStatus.BAD_REQUEST);
+    }
+
+    // Get all active products for this tenant
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true, sellPrice: true, description: true, imageUrl: true, sku: true },
+    });
+
+    const pushed:  Array<{ productId: string; zzoneId: string }> = [];
+    const failed:  Array<{ productId: string; error: string }>   = [];
+    const already: string[] = [];
+    const currentMappings = { ...zzoneConfig.productMappings };
+
+    for (const p of products) {
+      // Skip if already mapped
+      if (currentMappings[p.id]) {
+        already.push(p.id);
+        continue;
+      }
+      try {
+        const result = await this.outbound.createProduct(zzoneConfig.token, {
+          name:        p.name,
+          price:       Number(p.sellPrice),
+          category:    'cosmetics',
+          description: p.description ?? '',
+          stock:       0,
+          externalId:  p.id,
+        });
+        currentMappings[p.id] = result.zzoneProductId;
+        pushed.push({ productId: p.id, zzoneId: result.zzoneProductId });
+      } catch (err) {
+        failed.push({ productId: p.id, error: (err as Error).message });
+      }
+    }
+
+    // Save updated mappings
+    if (pushed.length > 0) {
+      const existing = await this.prisma.integrationConfig.findUnique({
+        where: { tenantId_provider: { tenantId, provider: 'ZZONE' } },
+      });
+      if (existing) {
+        const cfg = (existing.config ?? {}) as Record<string, unknown>;
+        cfg.token           = zzoneConfig.token;
+        cfg.productMappings = currentMappings;
+        await this.prisma.integrationConfig.update({
+          where: { id: existing.id },
+          data:  { config: cfg as object },
+        });
+      }
+    }
+
+    this.logger.log(`[ZZone SyncAll] tenant=${tenantId} pushed=${pushed.length} failed=${failed.length} already=${already.length}`);
+
+    return {
+      success: true,
+      pushed:  pushed.length,
+      failed:  failed.length,
+      already: already.length,
+      errors:  failed.slice(0, 10),
+    };
+  }
+
   @Delete('disconnect')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'ZZone integratsiyani o\'chirish' })
@@ -105,6 +174,19 @@ export class ZzoneSettingsController {
     });
 
     return { success: true, disconnected: true };
+  }
+
+  private async getZzoneConfigFull(tenantId: string): Promise<{
+    token: string;
+    productMappings: Record<string, string>;
+  } | null> {
+    const config = await this.prisma.integrationConfig.findUnique({
+      where: { tenantId_provider: { tenantId, provider: 'ZZONE' } },
+    });
+    if (!config || !config.isActive) return null;
+    const cfg = (config.config ?? {}) as { token?: string; productMappings?: Record<string, string> };
+    if (!cfg.token) return null;
+    return { token: cfg.token, productMappings: cfg.productMappings ?? {} };
   }
 
   private async upsertConfig(tenantId: string, token: string, isActive: boolean) {
