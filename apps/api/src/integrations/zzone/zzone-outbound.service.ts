@@ -35,17 +35,12 @@ export class ZzoneOutboundService {
 
   async createProduct(
     token: string,
-    product: { name: string; price: number; category: string; description?: string; stock: number; externalId?: string },
+    product: { name: string; price: number; category: string; description?: string; stock: number },
   ): Promise<{ zzoneProductId: string }> {
-    // /api/products/sync: JSON-only, auto-approves, no multipart required
-    const res = await this.request('POST', '/api/products/sync', product, token) as {
-      created: Array<{ externalId?: string; productId: string }>;
-      errors:  Array<{ externalId?: string; error: string }>;
+    const res = await this.request('POST', '/api/products', product, token) as {
+      product: { _id: string };
     };
-    if (!res.created?.length) {
-      throw new Error(res.errors?.[0]?.error ?? 'Sync failed');
-    }
-    return { zzoneProductId: res.created[0].productId };
+    return { zzoneProductId: res.product._id };
   }
 
   async updateProduct(

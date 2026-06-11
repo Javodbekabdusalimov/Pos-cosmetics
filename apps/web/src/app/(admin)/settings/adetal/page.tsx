@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Link2, CheckCircle2, AlertCircle, Loader2,
-  Eye, EyeOff, RefreshCw, Unlink, Package, UploadCloud,
+  Eye, EyeOff, RefreshCw, Unlink, Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { zzoneApi } from '@/api/zzone.api';
@@ -41,20 +41,6 @@ export default function AdetalIntegrationPage() {
     onSuccess: () => {
       toast.success("Adetal integratsiyasi o'chirildi");
       qc.invalidateQueries({ queryKey: ['zzone-status'] });
-    },
-  });
-
-  const [syncResult, setSyncResult] = useState<{ pushed: number; failed: number; already: number } | null>(null);
-  const syncAllMut = useMutation({
-    mutationFn: () => zzoneApi.syncAll(),
-    onSuccess: (data) => {
-      setSyncResult({ pushed: data.pushed, failed: data.failed, already: data.already });
-      toast.success(`Sync yakunlandi: ${data.pushed} ta mahsulot yuborildi`);
-      qc.invalidateQueries({ queryKey: ['zzone-status'] });
-    },
-    onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast.error(msg || 'Sync xatosi');
     },
   });
 
@@ -99,34 +85,16 @@ export default function AdetalIntegrationPage() {
                 <Package className="w-4 h-4" />
                 <span>{status?.productCount ?? 0} ta mahsulot sinxronlangan</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => syncAllMut.mutate()}
-                  disabled={syncAllMut.isPending}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                >
-                  {syncAllMut.isPending
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <UploadCloud className="w-4 h-4" />}
-                  {syncAllMut.isPending ? 'Sync...' : 'Barcha mahsulotlarni yuborish'}
-                </button>
-                <button
-                  onClick={() => disconnectMut.mutate()}
-                  disabled={disconnectMut.isPending}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                >
-                  {disconnectMut.isPending
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Unlink className="w-4 h-4" />}
-                  O&apos;chirish
-                </button>
-              </div>
-
-              {syncResult && (
-                <div className="text-xs bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-emerald-700">
-                  Yuborildi: <b>{syncResult.pushed}</b> · Xato: <b>{syncResult.failed}</b> · Oldin yuborilgan: <b>{syncResult.already}</b>
-                </div>
-              )}
+              <button
+                onClick={() => disconnectMut.mutate()}
+                disabled={disconnectMut.isPending}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                {disconnectMut.isPending
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Unlink className="w-4 h-4" />}
+                Integratsiyani o&apos;chirish
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-gray-500">
